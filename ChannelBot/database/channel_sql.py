@@ -14,7 +14,8 @@ class Channel(BASE):
     edit_mode = Column(String, nullable=True)
     webpage_preview = Column(Boolean)
 
-    def __init__(self, channel_id, admin_id, caption=None, buttons=None, edit_mode=None, position=None, webpage_preview=False, sticker_id=None):
+    def __init__(self, channel_id, admin_id, caption=None, buttons=None,
+                 edit_mode=None, position=None, webpage_preview=False, sticker_id=None):
         self.channel_id = channel_id
         self.admin_id = admin_id
         self.caption = caption
@@ -25,17 +26,18 @@ class Channel(BASE):
         self.edit_mode = edit_mode
 
 
-Channel.__table__.create(checkfirst=True)
+# ✅ Fixed: add bind to the create() call
+Channel.__table__.create(bind=SESSION.get_bind(), checkfirst=True)
 
 
-async def num_channels():
+def num_channels():
     try:
         return SESSION.query(Channel).count()
     finally:
         SESSION.close()
 
 
-async def add_channel(channel_id, user_id):
+def add_channel(channel_id, user_id):
     q = SESSION.query(Channel).get(channel_id)
     if not q:
         SESSION.add(Channel(channel_id, user_id))
@@ -44,7 +46,7 @@ async def add_channel(channel_id, user_id):
         SESSION.close()
 
 
-async def remove_channel(channel_id):
+def remove_channel(channel_id):
     q = SESSION.query(Channel).get(channel_id)
     if q:
         SESSION.delete(q)
@@ -53,7 +55,7 @@ async def remove_channel(channel_id):
         SESSION.close()
 
 
-async def get_channel_info(channel_id):
+def get_channel_info(channel_id):
     q = SESSION.query(Channel).get(channel_id)
     if q:
         info = {
@@ -72,7 +74,7 @@ async def get_channel_info(channel_id):
         return False, {}
 
 
-async def set_caption(channel_id, caption):
+def set_caption(channel_id, caption):
     q = SESSION.query(Channel).get(channel_id)
     if q:
         q.caption = caption
@@ -83,7 +85,7 @@ async def set_caption(channel_id, caption):
         return False
 
 
-async def get_caption(channel_id):
+def get_caption(channel_id):
     q = SESSION.query(Channel).get(channel_id)
     if q and q.caption:
         caption = q.caption
@@ -94,7 +96,7 @@ async def get_caption(channel_id):
         return ''
 
 
-async def set_buttons(channel_id, buttons):
+def set_buttons(channel_id, buttons):
     q = SESSION.query(Channel).get(channel_id)
     if q:
         q.buttons = buttons
@@ -105,7 +107,7 @@ async def set_buttons(channel_id, buttons):
         return False
 
 
-async def get_buttons(channel_id):
+def get_buttons(channel_id):
     q = SESSION.query(Channel).get(channel_id)
     if q and q.buttons:
         buttons = q.buttons
@@ -116,7 +118,7 @@ async def get_buttons(channel_id):
         return None
 
 
-async def set_position(channel_id, position):
+def set_position(channel_id, position):
     q = SESSION.query(Channel).get(channel_id)
     if q:
         q.position = position
@@ -127,7 +129,7 @@ async def set_position(channel_id, position):
         return False
 
 
-async def get_position(channel_id):
+def get_position(channel_id):
     q = SESSION.query(Channel).get(channel_id)
     if q and q.position:
         position = q.position
@@ -138,7 +140,7 @@ async def get_position(channel_id):
         return 'below'
 
 
-async def set_sticker(channel_id, sticker):
+def set_sticker(channel_id, sticker):
     q = SESSION.query(Channel).get(channel_id)
     if q:
         q.sticker_id = sticker
@@ -149,7 +151,7 @@ async def set_sticker(channel_id, sticker):
         return False
 
 
-async def get_sticker(channel_id):
+def get_sticker(channel_id):
     q = SESSION.query(Channel).get(channel_id)
     if q and q.sticker_id:
         sticker = q.sticker_id
@@ -157,17 +159,13 @@ async def get_sticker(channel_id):
         return sticker
     else:
         SESSION.close()
+        return None
 
 
-async def toggle_webpage_preview(channel_id, value):
+def toggle_webpage_preview(channel_id, value):
     q = SESSION.query(Channel).get(channel_id)
     if q:
-        # print(value)
-        if value:
-            q.webpage_preview = True
-        else:
-            q.webpage_preview = False
-        # print(q.webpage_preview)
+        q.webpage_preview = bool(value)
         SESSION.commit()
         return True
     else:
@@ -175,17 +173,18 @@ async def toggle_webpage_preview(channel_id, value):
         return False
 
 
-async def get_webpage_preview(channel_id):
+def get_webpage_preview(channel_id):
     q = SESSION.query(Channel).get(channel_id)
-    if q and q.webpage_preview:
+    if q:
+        value = q.webpage_preview
         SESSION.close()
-        return True
+        return bool(value)
     else:
         SESSION.close()
         return False
 
 
-async def set_edit_mode(channel_id, edit_mode):
+def set_edit_mode(channel_id, edit_mode):
     q = SESSION.query(Channel).get(channel_id)
     if q:
         q.edit_mode = edit_mode
@@ -196,7 +195,7 @@ async def set_edit_mode(channel_id, edit_mode):
         return False
 
 
-async def get_edit_mode(channel_id):
+def get_edit_mode(channel_id):
     q = SESSION.query(Channel).get(channel_id)
     if q and q.edit_mode:
         edit_mode = q.edit_mode
