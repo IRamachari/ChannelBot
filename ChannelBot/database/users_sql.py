@@ -14,51 +14,46 @@ class Users(BASE):
         self.channels = channels
 
 
-Users.__table__.create(checkfirst=True)
+# Create table with bind
+Users.__table__.create(bind=SESSION.get_bind(), checkfirst=True)
 
 
-async def num_users():
+def num_users():
     try:
         return SESSION.query(Users).count()
     finally:
         SESSION.close()
 
 
-async def add_channel(user_id, channel_id):
-    q: Users = SESSION.query(Users).get(user_id)
+def add_channel(user_id, channel_id):
+    q = SESSION.query(Users).get(user_id)
     if q:
         if q.channels:
             channels = list(set(ast.literal_eval(q.channels)))
-            channels.append(channel_id)
+            if channel_id not in channels:
+                channels.append(channel_id)
             q.channels = str(channels)
         else:
             q.channels = str([channel_id])
     else:
-        SESSION.add(Users(user_id))
+        SESSION.add(Users(user_id, str([channel_id])))
     SESSION.commit()
 
 
-async def remove_channel(user_id, channel_id):
+def remove_channel(user_id, channel_id):
     q = SESSION.query(Users).get(user_id)
-    if q:
+    if q and q.channels:
         channels = list(set(ast.literal_eval(q.channels)))
-        if q.channels and channel_id in channels:
+        if channel_id in channels:
             channels.remove(channel_id)
-            if len(channels) == 0:
-                q.channels = None
-            else:
-                q.channels = str(channels)
-    else:
-        SESSION.add(Users(user_id))
+            q.channels = str(channels) if channels else None
     SESSION.commit()
 
 
-async def get_channels(user_id):
+def get_channels(user_id):
     q = SESSION.query(Users).get(user_id)
     if q:
         if q.channels:
-            # literal_eval() makes sure that the items remain of their type (here int).
-            # While list() will make items str.
             channels = ast.literal_eval(q.channels)
             SESSION.close()
             return True, channels
