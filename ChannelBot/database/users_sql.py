@@ -13,53 +13,72 @@ class Users(BASE):
         self.user_id = user_id
         self.channels = channels
 
+# Create the table if it doesn't exist
+BASE.metadata.create_all(SESSION.bind, checkfirst=True)
 
-# Create table with bind
-Users.__table__.create(bind=SESSION.get_bind(), checkfirst=True)
 
-
-def num_users():
+async def num_users():
     try:
         return SESSION.query(Users).count()
     finally:
         SESSION.close()
 
 
-def add_channel(user_id, channel_id):
-    q = SESSION.query(Users).get(user_id)
-    if q:
-        if q.channels:
-            channels = list(set(ast.literal_eval(q.channels)))
-            if channel_id not in channels:
+async def add_channel(user_id, channel_id):
+    try:
+        q: Users = SESSION.query(Users).get(user_id)
+        if q:
+            if q.channels:
+                channels = list(set(ast.literal_eval(q.channels)))
                 channels.append(channel_id)
-            q.channels = str(channels)
+                q.channels = str(channels)
+            else:
+                q.channels = str([channel_id])
         else:
-            q.channels = str([channel_id])
-    else:
-        SESSION.add(Users(user_id, str([channel_id])))
-    SESSION.commit()
-
-
-def remove_channel(user_id, channel_id):
-    q = SESSION.query(Users).get(user_id)
-    if q and q.channels:
-        channels = list(set(ast.literal_eval(q.channels)))
-        if channel_id in channels:
-            channels.remove(channel_id)
-            q.channels = str(channels) if channels else None
-    SESSION.commit()
-
-
-def get_channels(user_id):
-    q = SESSION.query(Users).get(user_id)
-    if q:
-        if q.channels:
-            channels = ast.literal_eval(q.channels)
-            SESSION.close()
-            return True, channels
-        else:
-            return False, []
-    else:
-        SESSION.add(Users(user_id))
+            SESSION.add(Users(user_id))
         SESSION.commit()
-        return False, []
+    except Exception as e:
+        SESSION.rollback()
+        raise e
+    finally:
+        SESSION.close()
+
+
+async def remove_channel(user_id, channel_id):
+    try:
+        q = SESSION.query(Users).get(user_id)
+        if q:
+            channels = list(set(ast.literal_eval(q.channels))) if q.channels else []
+            if channel_id in channels:
+                channels.remove(channel_id)
+                if len(channels) == 0:
+                    q.channels = None
+                else:
+                    q.channels = str(channels)
+        else:
+            SESSION.add(Users(user_id))
+        SESSION.commit()
+    except Exception as e:
+        SESSION.rollback()
+        raise e
+    finally:
+        SESSION.close()
+
+
+async def get_channels(user_id):
+    try:
+        q = SESSION.query(Users).get(user_id)
+        if q:
+            if q.channels:
+                # literal_eval() makes sure that the items remain of their type (here int).
+                # While list() will make items str.
+                channels = ast.literal_eval(q.channels)
+                return True, channels
+            else:
+                return False, []
+        else:
+            SESSION.add(Users(user_id))
+            SESSION.commit()
+            return False, []
+    finally:
+        SESSION.close()
